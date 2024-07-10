@@ -12,10 +12,11 @@ matplotlib.use('Agg')
 
 def get_grid_data(args, latitude, longitude):
     fulldata = pd.read_csv("./max_all.csv")
-    griddata = fulldata[fulldata['latitude'] == latitude and fulldata['longitude'] == longitude]
+    griddata = fulldata[fulldata['latitude'] == latitude] 
+    griddata = griddata[griddata['longitude'] == longitude]
     griddata.drop(columns = ["latitude", "longitude"], inplace = True)
     griddata['time'] = pd.to_datetime(griddata['time'])
-    griddata.set_index('time', index = True)
+    griddata.set_index('time', inplace = True)
     data = griddata[griddata.columns[0]]
     return data
 
