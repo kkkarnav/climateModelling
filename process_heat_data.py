@@ -17,8 +17,8 @@ def read_heat_data(variable):
         .replace(99.9000015258789, -99)
 
     count = (df == -99).sum()
-    df = df.drop(columns=count[count > 40].index)
-    df = df.reset_index(drop=True).replace(-99, 25.98989)
+    # df = df.drop(columns=count[count > 40].index)
+    df = df.reset_index(drop=True)  # .replace(-99, 25.98989)
 
     return df
 
@@ -33,8 +33,8 @@ def read_rt_heat_data(variable):
 
     df = df.reset_index(drop=True)
     count = (df == -99).sum()
-    df = df.drop(columns=count[count > 30].index)
-    df = df.reset_index(drop=True).replace(-99, 26.98989)
+    # df = df.drop(columns=count[count > 30].index)
+    df = df.reset_index(drop=True)  # .replace(-99, 26.98989)
 
     df.to_csv(f"{OUTPUT_DIR}/0.5_{variable}.csv")
     return df
