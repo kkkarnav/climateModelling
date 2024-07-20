@@ -1,9 +1,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
 from pprint import pprint
 from tqdm import tqdm
 import warnings
-import imdlib as imd
 
 warnings.filterwarnings("ignore")
 OUTPUT_DIR = "./dataset/heat_main"
@@ -48,7 +49,20 @@ def visualize_raw_data(df, label):
     ax.set_title(f'Annual means of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"./images/annual_means_{label}_allindia.png")
+    plt.clf()
+    
+    # India monthly mean
+    df["month"] = pd.to_datetime(df.iloc[:, 0]).apply(lambda x: x.month)
+    monthly_means = df.iloc[:, 1:].groupby(["year", "month"]).mean()
+    ax = monthly_means.mean(axis=1).plot(color="firebrick")
+    ax.set_title(f'Monthly means of {label} temperature across India', weight='bold')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Mean temp')
+    plt.tight_layout()
+    plt.savefig(f"./images/monthly_means_{label}_allindia.png")
+    plt.clf()
 
     # India annual min and max
     ax = annual_means.max(axis=1).plot(color="red", alpha=0.5)
@@ -57,16 +71,20 @@ def visualize_raw_data(df, label):
     ax.set_title(f'Annual min and max of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"./images/annual_minmax_{label}_allindia.png")
+    plt.clf()
 
-    # India monthly mean
+    # India monthly mean time restricted
     df["month"] = pd.to_datetime(df.iloc[:, 0]).apply(lambda x: x.month)
     monthly_means = df.iloc[:, 1:].groupby(["year", "month"]).mean().iloc[-240:]
     ax = monthly_means.mean(axis=1).plot(color="firebrick")
     ax.set_title(f'Monthly means of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"./images/monthly_means_{label}_allindia_2004+.png")
+    plt.clf()
 
     # India daily mean
     ax = df.iloc[:, 1:-2].mean(axis=1).iloc[-1825:].plot(color="firebrick")
@@ -75,7 +93,9 @@ def visualize_raw_data(df, label):
     ax.set_title(f'Daily means of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(f"./images/daily_means_{label}_allindia.png")
+    plt.clf()
 
 
 def viz_main_data():
@@ -88,7 +108,7 @@ def viz_main_data():
     # dtr = pd.read_csv(f"{OUTPUT_DIR}/main_dtr.csv", header=[0, 1], index_col=0)
 
     # Visualize temporal trends in min and max data
-    # visualize_raw_data(tmin, "min.")
+    visualize_raw_data(tmin, "min.")
     visualize_raw_data(tmax, "max.")
     # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(dtr, "range of")
