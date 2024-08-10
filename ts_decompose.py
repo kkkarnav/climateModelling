@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 from pprint import pprint
 from tqdm import tqdm
 import warnings
-from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.forecasting.stl import STLForecast
+from statsmodels.tsa.stattools import adfuller, kpss
+from statsmodels.graphics.tsaplots import plot_acf
 from datetime import datetime
 
 warnings.filterwarnings("ignore")
@@ -117,12 +118,21 @@ def stl_decomposition(tseries, robust):
 
 def stl_forecast(tseries):
     
-    stlf = STLForecast(tseries.iloc[:, -1], ARIMA, model_kwargs=dict(order=(1, 1, 0), trend="t"), period=365, seasonal=11)
+    stlf = STLForecast(tseries.iloc[:-1825, -1], ARIMA, model_kwargs=dict(order=(1, 1, 0), trend="t"), period=365)
     stlf_res = stlf.fit()
-    forecast = stlf_res.forecast(7300)
+    forecast = stlf_res.forecast(3650)
     
-    plt.plot(tseries.iloc[:, -1])
-    plt.plot(forecast)
+    plt.figure(figsize=(10, 6))
+    plt.plot(tseries.iloc[:, -1], alpha=0.5, color="cornflowerblue")
+    plt.plot(forecast, alpha=0.5, color="firebrick")
+    plt.title("STL Forecast", weight='bold')
+    plt.savefig(f"./images/forecast_stl_full.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(tseries.iloc[-3650:, -1], alpha=0.5, color="cornflowerblue")
+    plt.plot(forecast, alpha=0.5, color="firebrick")
+    plt.title("STL Forecast", weight='bold')
     plt.savefig(f"./images/forecast_stl.png", dpi=600, bbox_inches="tight")
     plt.clf()
     
@@ -158,6 +168,50 @@ def stl_forecast(tseries):
     print(stlf_res.summary())
 
 
+def test_adf(tseries):
+    
+    print("\nDickey-Fuller Test:\n")
+    dftest = adfuller(tseries, autolag="AIC")
+    
+    dfoutput = pd.Series(
+        dftest[0:4],
+        index=[
+            "Test Statistic",
+            "p-value",
+            "#Lags Used",
+            "Number of Observations Used",
+        ],
+    )
+    for key, value in dftest[4].items():
+        dfoutput["Critical Value (%s)" % key] = value
+    
+    print(dfoutput)
+
+
+def test_kpss(tseries):
+    
+    print("\nKPSS Test:\n")
+    kpsstest = kpss(tseries, regression="c", nlags="auto")
+    
+    kpss_output = pd.Series(
+        kpsstest[0:3], index=["Test Statistic", "p-value", "Lags Used"]
+    )
+    for key, value in kpsstest[3].items():
+        kpss_output["Critical Value (%s)" % key] = value
+    
+    print(kpss_output)
+
+
+def autocorrelation(tseries, lags):
+    plt.figure(figsize=(10, 6))
+    plt.title("Autocorrelation of daily temperature with previous 1-30 days readings")
+    plot_acf(tseries, lags=lags, color="steelblue")
+    
+    plt.tight_layout()
+    plt.savefig(f"./images/autocorrelation_{str(lags)}.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+
+
 if __name__ == "__main__":
     # Read raw tmin and tmax data into csv format
     tmax = read_heat_data("tmax")
@@ -174,3 +228,11 @@ if __name__ == "__main__":
     # stl_decomposition(tmax, False)
     
     stl_forecast(tmax)
+    
+    # Dickey Fuller and KPSS indicate that the series is stationary
+    # test_adf(tmax[("avg", "avg")])
+    # test_kpss(tmax[("avg", "avg")])
+    
+    # Data is strongly autocorrelated with the preceding readings (as expected)
+    # autocorrelation(tmax.iloc[:, -1], 30)
+    # autocorrelation(tmax.iloc[:, -1], 365)
