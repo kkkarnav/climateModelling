@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from pprint import pprint
@@ -98,6 +99,22 @@ def visualize_raw_data(df, label):
     plt.clf()
 
 
+def seasonal_plot(df):
+    
+    df[("avg", "avg")] = df.iloc[:, 1:].mean(axis=1)
+    df['day'] = pd.to_datetime(df[('lat', 'lon')]).dt.dayofyear
+    df['year'] = pd.to_datetime(df[('lat', 'lon')]).dt.year
+
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=df, x='day', y=tmax[('avg', 'avg')], hue='year', palette='inferno', linewidth=1.5, legend=False, alpha=0.5)
+    plt.title('Seasonal Plot of Mean Temperature')
+    plt.xlabel('Day of Year')
+    plt.ylabel('Mean Temperature')
+    
+    plt.savefig(f"./images/seasonal_plot.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+
+
 def viz_main_data():
 
     # Read raw tmin and tmax data into csv format
@@ -108,10 +125,12 @@ def viz_main_data():
     # dtr = pd.read_csv(f"{OUTPUT_DIR}/main_dtr.csv", header=[0, 1], index_col=0)
 
     # Visualize temporal trends in min and max data
-    visualize_raw_data(tmin, "min.")
-    visualize_raw_data(tmax, "max.")
+    # visualize_raw_data(tmin, "min.")
+    # visualize_raw_data(tmax, "max.")
     # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(dtr, "range of")
+    
+    # seasonal_plot(tmax)
 
 
 def viz_rt_data():
@@ -128,6 +147,8 @@ def viz_rt_data():
     visualize_raw_data(tmax, "max.")
     # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(dtr, "range of")
+    
+    # seasonal_plot(tmax)
 
 
 if __name__ == "__main__":
