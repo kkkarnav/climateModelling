@@ -5,6 +5,7 @@ from tqdm import tqdm
 import warnings
 from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.forecasting.stl import STLForecast
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.graphics.tsaplots import plot_acf
@@ -116,58 +117,6 @@ def stl_decomposition(tseries, robust):
         plt.clf()
     
 
-def stl_forecast(tseries):
-    
-    stlf = STLForecast(tseries.iloc[:-1825, -1], ARIMA, model_kwargs=dict(order=(1, 1, 0), trend="t"), period=365)
-    stlf_res = stlf.fit()
-    forecast = stlf_res.forecast(3650)
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(tseries.iloc[:, -1], alpha=0.5, color="cornflowerblue")
-    plt.plot(forecast, alpha=0.5, color="firebrick")
-    plt.title("STL Forecast", weight='bold')
-    plt.savefig(f"./images/forecast_stl_full.png", dpi=600, bbox_inches="tight")
-    plt.clf()
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(tseries.iloc[-3650:, -1], alpha=0.5, color="cornflowerblue")
-    plt.plot(forecast, alpha=0.5, color="firebrick")
-    plt.title("STL Forecast", weight='bold')
-    plt.savefig(f"./images/forecast_stl.png", dpi=600, bbox_inches="tight")
-    plt.clf()
-    
-    result = STL(forecast, period=365, seasonal=11).fit()
-    
-    trend = result.trend
-    seasonal = result.seasonal
-    residual = result.resid
-    
-    plt.figure(figsize=(10, 6))
-    plt.suptitle(f"STL Forecast", fontsize=12, weight='bold')
-    
-    plt.subplot(4, 1, 1)
-    plt.plot(forecast, label='Actual Forecast', color="cornflowerblue")
-    plt.legend(loc='lower left')
-    
-    plt.subplot(4, 1, 2)
-    plt.plot(trend, label='Trend (STL)', color='dodgerblue')
-    plt.legend(loc='lower left')
-    
-    plt.subplot(4, 1, 3)
-    plt.plot(seasonal, label='Seasonal (STL)', color='mediumseagreen')
-    plt.legend(loc='lower left')
-    
-    plt.subplot(4, 1, 4)
-    plt.plot(residual, label='Residual (STL)', color='firebrick')
-    plt.legend(loc='lower left')
-    
-    plt.tight_layout()
-    plt.savefig(f"./images/decompose_stl_forecast.png", dpi=600, bbox_inches="tight")
-    plt.clf()
-    
-    print(stlf_res.summary())
-
-
 def test_adf(tseries):
     
     print("\nDickey-Fuller Test:\n")
@@ -212,6 +161,86 @@ def autocorrelation(tseries, lags):
     plt.clf()
 
 
+def plot_decomposition(forecast, result, model):
+    
+    trend = result.trend
+    seasonal = result.seasonal
+    residual = result.resid
+    
+    plt.figure(figsize=(10, 6))
+    plt.suptitle(f"STL Forecast", fontsize=12, weight='bold')
+    
+    plt.subplot(4, 1, 1)
+    plt.plot(forecast, label='Actual Forecast', color="cornflowerblue")
+    plt.legend(loc='lower left')
+    
+    plt.subplot(4, 1, 2)
+    plt.plot(trend, label='Trend (STL)', color='dodgerblue')
+    plt.legend(loc='lower left')
+    
+    plt.subplot(4, 1, 3)
+    plt.plot(seasonal, label='Seasonal (STL)', color='mediumseagreen')
+    plt.legend(loc='lower left')
+    
+    plt.subplot(4, 1, 4)
+    plt.plot(residual, label='Residual (STL)', color='firebrick')
+    plt.legend(loc='lower left')
+    
+    plt.tight_layout()
+    plt.savefig(f"./images/forecast_stl_{model}_decompose.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+    
+
+def stl_forecast(tseries_grid):
+    
+    stlf = STLForecast(tseries_grid, ARIMA, model_kwargs=dict(order=(1, 1, 0), trend="t"), period=365, seasonal=121)
+    stlf_res = stlf.fit()
+    forecast = stlf_res.forecast(3650)
+    
+    '''plt.figure(figsize=(10, 6))
+    plt.plot(tseries.iloc[:, -1], alpha=0.5, color="cornflowerblue")
+    plt.plot(forecast, alpha=0.5, color="firebrick")
+    plt.title("STL Forecast", weight='bold')
+    plt.savefig(f"./images/forecast_stl_arima_full.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(tseries.iloc[-3650:, -1], alpha=0.5, color="cornflowerblue")
+    plt.plot(forecast, alpha=0.5, color="firebrick")
+    plt.title("STL Forecast", weight='bold')
+    plt.savefig(f"./images/forecast_stl_arima.png", dpi=600, bbox_inches="tight")
+    plt.clf()
+    
+    decomposition = STL(forecast, period=365, seasonal=121).fit()
+    plot_decomposition(forecast, decomposition, "arima")
+    
+    print(stlf_res.summary())'''
+    return forecast
+    
+    
+def forecast_all_grids(tseries):
+    
+    forecast_dates = pd.date_range(pd.to_datetime(tseries[("lat", "lon")]).max() + pd.Timedelta(days=-3650), periods=3650)
+    forecast_df = pd.DataFrame(index=forecast_dates)
+
+    for column in tqdm(tseries.columns.drop(("lat", "lon"))):
+        
+        forecast = stl_forecast(tseries.iloc[:-3651].loc[:, column])
+        forecast_df[column] = forecast
+
+    print(forecast_df)
+    forecast_df.to_csv(f"{OUTPUT_DIR}/stl_forecast_data.csv")
+
+
+def calculate_errors(real_df, forecast_df):
+    
+    mae = (real_df - forecast_df).abs().mean()
+    print(mae)
+    
+    rmse = ((real_df - forecast_df) ** 2).mean().pow(0.5)
+    print(rmse)
+    
+    
 if __name__ == "__main__":
     # Read raw tmin and tmax data into csv format
     tmax = read_heat_data("tmax")
@@ -227,8 +256,6 @@ if __name__ == "__main__":
     # stl_decomposition(tmax, True)
     # stl_decomposition(tmax, False)
     
-    stl_forecast(tmax)
-    
     # Dickey Fuller and KPSS indicate that the series is stationary
     # test_adf(tmax[("avg", "avg")])
     # test_kpss(tmax[("avg", "avg")])
@@ -236,3 +263,5 @@ if __name__ == "__main__":
     # Data is strongly autocorrelated with the preceding readings (as expected)
     # autocorrelation(tmax.iloc[:, -1], 30)
     # autocorrelation(tmax.iloc[:, -1], 365)
+    
+    forecast_all_grids(tmax)

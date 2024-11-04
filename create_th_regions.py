@@ -189,12 +189,32 @@ def mark_regions(tseries):
     return tseries
     
 
+def plot_regions(tseries):
+    
+    subset_tseries = tseries.loc[tseries["date"] == "2023-01-01", :]
+    subset_tseries = subset_tseries.loc[subset_tseries["TEMP"].notna(), :]
+    subset_tseries['geometry'] = subset_tseries.progress_apply(lambda row: box(row['LONG'], row['LAT'], row['LONG'] + 1, row['LAT'] + 1), axis=1)
+    
+    gdf = gpd.GeoDataFrame(subset_tseries, geometry='geometry')
+    
+    gdf.plot(column='region', legend=True)
+    plt.title(f'Temperature Homogenous regions of India')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.savefig(f'{OUTPUT_DIR}/regions.png')
+    plt.clf()
+    
+
 if __name__ == "__main__":
     
     # Read raw tmin and tmax data into csv format
     # tmin = read_panel_heat_data("tmin"), 
-    tmax = read_panel_heat_data("tmax")
-    print(tmax.head())
+    # tmax = read_panel_heat_data("tmax")
+    # print(tmax.head())
     
-    tmax_marked = mark_regions(tmax)
-    tmax_marked.to_csv(f"{DATA_DIR}/main_tmax_panel_withregions.csv", index=False)
+    # tmax_marked = mark_regions(tmax)
+    # tmax_marked.to_csv(f"{DATA_DIR}/main_tmax_panel_withregions.csv", index=False)
+    
+    tmax_marked = pd.read_csv(f"{DATA_DIR}/main_tmax_panel_withregions.csv")
+    
+    plot_regions(tmax_marked)

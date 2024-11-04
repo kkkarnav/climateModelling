@@ -1,3 +1,4 @@
+import xarray as xr
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,86 +19,56 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
 from sklearn.metrics import roc_curve, roc_auc_score
 
+from tsai.all import *
+from tsai.basics import *
+from tsai.inference import load_learner
+
+
+matplotlib.use('Agg')
+tqdm.pandas()
 warnings.filterwarnings("ignore")
+
 OUTPUT_DIR = "./dataset/heat_main"
 
 
-def read_heat_data(variable):
-    df = pd.DataFrame()
+def read_panel_heat_data(variable):
+    df = pd.read_csv(f"{OUTPUT_DIR}/main_{variable}_panel.csv").replace(-99, None)
 
-    df = pd.read_csv(f"{OUTPUT_DIR}/main_{variable}.csv", header=[1, 2])[1:] \
-        .reset_index(drop=True) \
-        .replace(99.9000015258789, -99)
-
-    count = (df == -99).sum()
-    df = df.drop(columns=count[count > 40].index)
-    df = df.reset_index(drop=True).replace(-99, 25.98989)
-
-    return df
-
-
-def read_rt_heat_data(variable):
-    df = pd.DataFrame()
-    for year in range(2015, 2024):
-        year_df = pd.read_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:] \
-            .reset_index(drop=True) \
-            .replace(99.9000015258789, -99)
-        df = pd.concat([df, year_df])
-
-    df = df.reset_index(drop=True)
-    count = (df == -99).sum()
-    df = df.drop(columns=count[count > 30].index)
-    df = df.reset_index(drop=True).replace(-99, 26.98989)
-
-    df.to_csv(f"{OUTPUT_DIR}/0.5_{variable}.csv")
     return df
 
 
 def linear_regression(df):
+    pass
     
-    groups = df.groupby(['LAT', 'LONG'])
-    predictions = {}
 
-    for (lat, lon), group in groups:
-        
-        X = group[['year', 'day']].values
-        y = group['TEMP'].values
-        
-        poly = PolynomialFeatures(degree=9)
-        model = make_pipeline(poly, LinearRegression())
-        model.fit(X, y)
-        
-        future_X = X[-1] + np.arange(1, 3661) / 365
-        future_predictions = model.predict(future_X.reshape(-1, 1))
-        
-        # Store predictions
-        predictions[(lat, lon)] = future_predictions
+def multi_regression(df):
+
+    X, y, splits = get_regression_data('AppliancesEnergy', split_data=False)
+    tfms = [None, TSRegression()]
+    batch_tfms = TSStandardize(by_sample=True)
+    reg = TSRegressor(X, y, splits=splits, path='models', arch="TSTPlus", tfms=tfms, batch_tfms=batch_tfms, metrics=rmse, verbose=True)
+    print(reg)
+    reg.fit_one_cycle(100, 3e-4)
+    reg.export("reg.pkl")
     
-    average_predictions = np.zeros(3660)
-    for key in predictions:
-        average_predictions += predictions[key]
-    average_predictions /= len(predictions)
-    
-    avg = df.groupby(["year", "day"])["TEMP"].mean()
-    total = pd.concat([pd.Series(avg), pd.Series(average_predictions)]).reset_index(drop=True)
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(total, label='Averages', color='dodgerblue')
-    plt.legend(loc='lower left')
-    plt.show()
-    
-    
+    reg = load_learner("models/reg.pkl")
+    raw_preds, target, preds = reg.get_X_preds(X[splits[1]], y[splits[1]])
+    print(preds)
+
 
 if __name__ == "__main__":
+    
     # Read raw tmin and tmax data into csv format
-    tmax = pd.read_csv("./dataset/heat_main/main_tmax_panel.csv")
+    # tmin = read_panel_heat_data("tmin"), 
+    tmax = read_panel_heat_data("tmax")
     
     tmax["year"] = pd.to_datetime(tmax["date"]).dt.year
     tmax["day"] = pd.to_datetime(tmax["date"]).dt.dayofyear
-    
     tmax.drop(columns=["date"], inplace=True)
-    tmax = tmax[tmax["TEMP"] != -99]
     
+    tmax = tmax[tmax["TEMP"].notna()]
+    tmax[("avg", "avg")] = tmax.iloc[:, 1:].mean(axis=1)
     print(tmax.head())
     
     linear_regression(tmax)
+    # multi_regression(tmax)
