@@ -37,10 +37,6 @@ def read_panel_heat_data(variable):
     return df
 
 
-def linear_regression(df):
-    pass
-    
-
 def multi_regression(df):
 
     X, y, splits = get_regression_data('AppliancesEnergy', split_data=False)
@@ -65,10 +61,9 @@ if __name__ == "__main__":
     tmax["year"] = pd.to_datetime(tmax["date"]).dt.year
     tmax["day"] = pd.to_datetime(tmax["date"]).dt.dayofyear
     tmax.drop(columns=["date"], inplace=True)
+    tmax.sort_values(by=["year", "day", "LAT", "LONG"], inplace=True)
     
     tmax = tmax[tmax["TEMP"].notna()]
-    tmax[("avg", "avg")] = tmax.iloc[:, 1:].mean(axis=1)
     print(tmax.head())
     
-    linear_regression(tmax)
     # multi_regression(tmax)

@@ -1,24 +1,34 @@
-import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import box
+
 from pprint import pprint
 from tqdm import tqdm
+import ast
 import warnings
+from datetime import datetime
+
 from statsmodels.tsa.seasonal import seasonal_decompose, STL
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.forecasting.stl import STLForecast
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.graphics.tsaplots import plot_acf
-from datetime import datetime
 
+matplotlib.use('Agg')
+tqdm.pandas()
 warnings.filterwarnings("ignore")
-OUTPUT_DIR = "./dataset/heat_main"
+
+DATA_DIR = "./dataset/heat_main"
+OUTPUT_DIR = "./images"
 
 
 def read_heat_data(variable):
     df = pd.DataFrame()
 
-    df = pd.read_csv(f"{OUTPUT_DIR}/main_{variable}.csv", header=[1, 2])[1:] \
+    df = pd.read_csv(f"{DATA_DIR}/main_{variable}.csv", header=[1, 2])[1:] \
         .reset_index(drop=True) \
         .replace(99.9000015258789, -99)
 
@@ -32,7 +42,7 @@ def read_heat_data(variable):
 def read_rt_heat_data(variable):
     df = pd.DataFrame()
     for year in range(2015, 2024):
-        year_df = pd.read_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:] \
+        year_df = pd.read_csv(f"{DATA_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:] \
             .reset_index(drop=True) \
             .replace(99.9000015258789, -99)
         df = pd.concat([df, year_df])
@@ -42,7 +52,7 @@ def read_rt_heat_data(variable):
     df = df.drop(columns=count[count > 30].index)
     df = df.reset_index(drop=True).replace(-99, 26.98989)
 
-    df.to_csv(f"{OUTPUT_DIR}/0.5_{variable}.csv")
+    df.to_csv(f"{DATA_DIR}/0.5_{variable}.csv")
     return df
 
 
@@ -228,17 +238,46 @@ def forecast_all_grids(tseries):
         forecast = stl_forecast(tseries.iloc[:-3651].loc[:, column])
         forecast_df[column] = forecast
 
-    print(forecast_df)
-    forecast_df.to_csv(f"{OUTPUT_DIR}/stl_forecast_data.csv")
 
+    forecast_df.columns = pd.MultiIndex.from_tuples([ast.literal_eval(col) for col in forecast.columns], names=['lat', 'lon'])
+    forecast_df.columns.names = [None, None]
+    forecast_df.index.name = "(lat, lon)"
+    
+    forecast_df.to_csv(f"{DATA_DIR}/stl_forecast_data.csv")
+    return forecast_df
+
+
+def plot_errors(tseries):
+    
+    tseries['geometry'] = tseries.progress_apply(lambda row: 
+        box(float(row['lon']), float(row['lat']), float(row['lon']) + 1, float(row['lat']) + 1), axis=1)
+    gdf = gpd.GeoDataFrame(tseries, geometry='geometry')
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6)) 
+    fig.suptitle('STL-ARIMA Forecast Error Metrics', weight='bold')
+
+    gdf.plot(column='MAE', legend=True, ax=axes[0])
+    axes[0].set_title('MAE (Celsius) across India')
+    axes[0].set_xlabel('Longitude')
+    axes[0].set_ylabel('Latitude')
+
+    gdf.plot(column='RMSE', legend=True, ax=axes[1])
+    axes[1].set_title('RMSE (Celsius) across India')
+    axes[1].set_xlabel('Longitude')
+    axes[1].set_ylabel('Latitude')
+
+    plt.tight_layout()
+    plt.savefig(f'{OUTPUT_DIR}/stl_arima_errors.png')
+    plt.clf()
+    
 
 def calculate_errors(real_df, forecast_df):
     
-    mae = (real_df - forecast_df).abs().mean()
-    print(mae)
+    errors = pd.DataFrame()
+    errors["MAE"] = (real_df - forecast_df).abs().mean()
+    errors["RMSE"] = ((real_df - forecast_df) ** 2).mean().pow(0.5)
     
-    rmse = ((real_df - forecast_df) ** 2).mean().pow(0.5)
-    print(rmse)
+    plot_errors(errors.rename_axis(['lat', 'lon']).reset_index())
     
     
 if __name__ == "__main__":
@@ -264,4 +303,8 @@ if __name__ == "__main__":
     # autocorrelation(tmax.iloc[:, -1], 30)
     # autocorrelation(tmax.iloc[:, -1], 365)
     
-    forecast_all_grids(tmax)
+    # STL-ARIMA forecast for each grid individually
+    # forecast = forecast_all_grids(tmax)
+    forecast = pd.read_csv(f"{DATA_DIR}/stl_forecast_data.csv", header=[0, 1], index_col=0)
+    
+    calculate_errors(tmax.iloc[-3651:-1, :-1].set_index(("lat", "lon")), forecast.iloc[:, :-1])
