@@ -12,10 +12,10 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
+# from imblearn.over_sampling import SMOTE
 
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+from sklearn.metrics import mean_absolute_error, r2_score#, root_mean_squared_error
 from sklearn.metrics import roc_curve, roc_auc_score
 
 warnings.filterwarnings("ignore")
@@ -67,7 +67,7 @@ def linear_regression(df):
         model = make_pipeline(poly, LinearRegression())
         model.fit(X, y)
         
-        future_X = X[-1] + np.arange(1, 3661) / 365
+        future_X = X[-1].reshape(1, 2) + np.arange(1, 3661) / 365
         future_predictions = model.predict(future_X.reshape(-1, 1))
         
         # Store predictions
@@ -99,5 +99,6 @@ if __name__ == "__main__":
     tmax = tmax[tmax["TEMP"] != -99]
     
     print(tmax.head())
+    print()
     
     linear_regression(tmax)
