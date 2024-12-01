@@ -165,3 +165,7 @@ cython_debug/
 
 
 .DS_Store
+
+dataset/
+images/daily_plots/
+divij/

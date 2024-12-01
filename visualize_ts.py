@@ -111,7 +111,7 @@ def seasonal_plot(df):
     plt.xlabel('Day of Year')
     plt.ylabel('Mean Temperature')
     
-    plt.savefig(f"./images/seasonal_plot.png", dpi=600, bbox_inches="tight")
+    plt.savefig(f"./images/seasonal_plot.png", dpi=600, bbox_inches="tight", format="png")
     plt.clf()
 
 
@@ -126,7 +126,7 @@ def viz_main_data():
 
     # Visualize temporal trends in min and max data
     # visualize_raw_data(tmin, "min.")
-    # visualize_raw_data(tmax, "max.")
+    visualize_raw_data(tmax, "max.")
     # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(dtr, "range of")
     
