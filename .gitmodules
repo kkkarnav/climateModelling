@@ -1,0 +1,9 @@
+[submodule "graphcast"]
+	path = graphcast
+	url = https://github.com/SaptarishiD/graphcast
+[submodule "graphcast-experiments/graphcast"]
+	path = graphcast-experiments/graphcast
+	url = https://github.com/SaptarishiD/graphcast
+[submodule "ecmwf-ai-models-experiments/ai-models"]
+	path = ecmwf-ai-models-experiments/ai-models
+	url = https://github.com/SaptarishiD/ai-models
